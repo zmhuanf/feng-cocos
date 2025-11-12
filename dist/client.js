@@ -6,7 +6,13 @@ const config_1 = require("./config");
 const context_1 = require("./context");
 const func_1 = require("./func");
 const types_1 = require("./types");
-const uuid_1 = require("uuid");
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 class Client {
     constructor(config) {
         this.ws = null;
@@ -171,7 +177,7 @@ class Client {
         }
         const request = {
             route,
-            id: (0, uuid_1.v4)(),
+            id: generateUUID(),
             type: types_1.RequestType.PUSH,
             data: this.config.codec.marshal(data)
         };
@@ -181,7 +187,7 @@ class Client {
         if (!this.isConnected || this.isClosed) {
             throw new Error('Client is not connected or closed');
         }
-        const requestId = (0, uuid_1.v4)();
+        const requestId = generateUUID();
         return new Promise((resolve, reject) => {
             // 存储响应处理器
             this.responses.set(requestId, {

@@ -27,4 +27,3 @@ export declare class Client implements IClient {
  * 创建新的客户端实例
  */
 export declare function createClient(config?: Partial<IConfig>): IClient;
-//# sourceMappingURL=client.d.ts.map

@@ -25,4 +25,3 @@ export declare class Context implements IContext {
  * 创建新的上下文实例
  */
 export declare function createContext(client: IClient): IContext;
-//# sourceMappingURL=context.d.ts.map

@@ -65,4 +65,3 @@ export declare class DefaultConfig implements IConfig {
     enableTLS: boolean;
     constructor(config?: Partial<IConfig>);
 }
-//# sourceMappingURL=config.d.ts.map

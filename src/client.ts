@@ -3,7 +3,14 @@ import { createContext, IContext } from "./context";
 import { callFunction } from "./func";
 import { IClient, Middleware, ResponseHandler } from "./types";
 import { RequestType, Request } from "./types";
-import { v4 as uuidv4 } from 'uuid';
+
+function generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 
 export class Client implements IClient {
     private config: IConfig;
@@ -197,7 +204,7 @@ export class Client implements IClient {
         }
         const request: Request = {
             route,
-            id: uuidv4(),
+            id: generateUUID(),
             type: RequestType.PUSH,
             data: this.config.codec.marshal(data)
         };
@@ -208,7 +215,7 @@ export class Client implements IClient {
         if (!this.isConnected || this.isClosed) {
             throw new Error('Client is not connected or closed');
         }
-        const requestId = uuidv4();
+        const requestId = generateUUID();
         
         return new Promise<any>((resolve, reject) => {
             // 存储响应处理器

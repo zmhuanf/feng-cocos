@@ -4,4 +4,3 @@ export declare function callFunction(fn: any, ctx: IContext, data: string): {
     data?: string;
     error?: string;
 };
-//# sourceMappingURL=func.d.ts.map

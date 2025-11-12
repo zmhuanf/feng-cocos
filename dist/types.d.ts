@@ -52,4 +52,3 @@ export interface IClient {
     /** 关闭连接 */
     close(): void;
 }
-//# sourceMappingURL=types.d.ts.map
