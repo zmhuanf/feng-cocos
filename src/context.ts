@@ -8,6 +8,8 @@ export interface IContext {
      * 获取客户端实例
      */
     getClient(): IClient;
+    get(key: string): any;
+    set(key: string, value: any): void;
 }
 
 /**
@@ -15,6 +17,7 @@ export interface IContext {
  */
 export class Context implements IContext {
     private client: IClient;
+    private state: Map<string, any> = new Map();
 
     constructor(client: IClient) {
         this.client = client;
@@ -22,6 +25,14 @@ export class Context implements IContext {
 
     getClient(): IClient {
         return this.client;
+    }
+
+    get(key: string): any {
+        return this.state.get(key);
+    }
+
+    set(key: string, value: any): void {
+        this.state.set(key, value);
     }
 }
 
