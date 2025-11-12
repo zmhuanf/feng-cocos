@@ -1,0 +1,20 @@
+{
+  "name": "feng-cocos",
+  "version": "0.0.1",
+  "description": "A TypeScript WebSocket client library for Cocos Creator",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "uuid": "^9.0.1"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/uuid": "^10.0.0"
+  }
+}
