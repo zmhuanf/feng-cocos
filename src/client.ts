@@ -70,7 +70,7 @@ export class Client implements IClient {
     }
 
     handleMessage(message: string): void {
-        console.log('handleMessage:', message);
+        // console.log('handleMessage:', message);
         try {
             const request: Request = this.config.codec.unmarshal(message);
             switch (request.type) {
@@ -119,6 +119,8 @@ export class Client implements IClient {
         const responseType = request.type === RequestType.PUSH
             ? RequestType.PUSH_BACK
             : RequestType.REQUEST_BACK;
+        
+        // console.log('handleIncomingRequest:', request);
 
         try {
             // 执行中间件
@@ -144,6 +146,7 @@ export class Client implements IClient {
             }
             // 执行处理器
             const result = callFunction(handler, ctx, request.data);
+            // console.log('handleIncomingRequest:', result);
 
             if (result.success) {
                 await this.sendResponse(request.id, responseType, true, result.data || '');
