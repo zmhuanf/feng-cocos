@@ -1,4 +1,5 @@
 import { IConfig } from "./config";
+import { IContext } from "./context";
 
 /**
  * 请求类型枚举
@@ -55,7 +56,7 @@ export interface IClient {
   push(route: string, data: any): void;
   
   /** 异步请求 */
-  request(route: string, data: any): Promise<any>;
+  request(route: string, data: any): Promise<[IContext, any]>;
   
   /** 获取配置 */
   getConfig(): IConfig;

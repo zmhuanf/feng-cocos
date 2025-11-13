@@ -5,7 +5,7 @@ import { IClient, Middleware, ResponseHandler } from "./types";
 import { RequestType, Request } from "./types";
 
 function generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         const r = Math.random() * 16 | 0;
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
@@ -20,6 +20,7 @@ export class Client implements IClient {
     private responses: Map<string, ResponseHandler> = new Map();
     private isConnected: boolean = false;
     private isClosed: boolean = false;
+    private ctx: IContext = createContext(this);
 
     constructor(config: IConfig) {
         this.config = config;
@@ -105,14 +106,10 @@ export class Client implements IClient {
             this.config.logger.warn('No handler found for response:', request.id);
             return;
         }
-        const ctx = createContext(this);
         if (request.success) {
             try {
                 const data = this.config.codec.unmarshal(request.data);
-                responseHandler.resolve({
-                    context: ctx,
-                    data,
-                });
+                responseHandler.resolve(data);
             } catch (error) {
                 responseHandler.reject(error as Error);
             }
@@ -122,11 +119,10 @@ export class Client implements IClient {
     }
 
     async handleIncomingRequest(request: Request): Promise<void> {
-        const ctx = createContext(this);
         const responseType = request.type === RequestType.PUSH
             ? RequestType.PUSH_BACK
             : RequestType.REQUEST_BACK;
-        
+
         // console.log('handleIncomingRequest:', request);
 
         try {
@@ -135,7 +131,7 @@ export class Client implements IClient {
                 if (request.route.startsWith(middleware.route)) {
                     const result = callFunction(
                         middleware.fn,
-                        ctx,
+                        this.ctx,
                         request.data
                     );
 
@@ -152,7 +148,7 @@ export class Client implements IClient {
                 return;
             }
             // 执行处理器
-            const result = callFunction(handler, ctx, request.data);
+            const result = callFunction(handler, this.ctx, request.data);
             // console.log('handleIncomingRequest:', result);
 
             if (result.success) {
@@ -211,25 +207,25 @@ export class Client implements IClient {
         await this.sendRequest(request);
     }
 
-    async request(route: string, data: any): Promise<any> {
+    async request(route: string, data: any): Promise<[IContext, any]> {
         if (!this.isConnected || this.isClosed) {
             throw new Error('Client is not connected or closed');
         }
         const requestId = generateUUID();
-        
-        return new Promise<any>((resolve, reject) => {
+
+        return new Promise<[IContext, any]>((resolve, reject) => {
             // 存储响应处理器
             this.responses.set(requestId, {
                 resolve: (data: any) => {
                     this.responses.delete(requestId);
-                    resolve(data);
+                    resolve([this.ctx, data]);
                 },
                 reject: (error: Error) => {
                     this.responses.delete(requestId);
                     reject(error);
                 }
             });
-            
+
             // 配置超时删除，防止内存泄漏
             const timeoutMs = this.config.timeout || 30000;
             setTimeout(() => {
@@ -238,14 +234,14 @@ export class Client implements IClient {
                     reject(new Error('Request timeout'));
                 }
             }, timeoutMs);
-            
+
             const request: Request = {
                 route,
                 id: requestId,
                 type: RequestType.REQUEST,
                 data: this.config.codec.marshal(data)
             };
-            
+
             this.sendRequest(request).catch(error => {
                 this.responses.delete(requestId);
                 reject(error);
@@ -256,7 +252,7 @@ export class Client implements IClient {
     getConfig(): IConfig {
         return this.config;
     }
-    
+
     close(): void {
         if (this.ws) {
             this.ws.close();
