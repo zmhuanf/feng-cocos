@@ -39,6 +39,8 @@ export interface IConfig {
     timeout: number;
     /** 启用TLS */
     enableTLS: boolean;
+    /** 通道 */
+    channel: string;
 }
 
 /**
@@ -85,6 +87,7 @@ export class DefaultConfig implements IConfig {
     logger: ILogger = new ConsoleLogger();
     timeout: number = 5 * 60 * 1000; // 5分钟
     enableTLS: boolean = false;
+    channel: string = "game";
 
     constructor(config?: Partial<IConfig>) {
         if (config) {

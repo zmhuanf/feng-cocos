@@ -55,7 +55,7 @@ export class Client implements IClient {
     connect(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const protocol = this.config.enableTLS ? 'wss' : 'ws';
-            const url = `${protocol}://${this.config.addr}:${this.config.port}`;
+            const url = `${protocol}://${this.config.addr}:${this.config.port}/${this.config.channel}`;
 
             this.ws = new WebSocket(url);
             this.ws.onopen = () => {
