@@ -50,6 +50,9 @@ export class JsonCodec implements ICodec {
     }
 
     unmarshal(data: string): any {
+        if (data == "") {
+            return "";
+        }
         return JSON.parse(data);
     }
 }

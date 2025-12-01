@@ -15,6 +15,7 @@ function generateUUID(): string {
 export class Client implements IClient {
     private config: IConfig;
     private ws: WebSocket | null = null;
+    private sysClient: Client | null = null;
     private handlers: Map<string, any> = new Map();
     private middlewares: Middleware[] = [];
     private responses: Map<string, ResponseHandler> = new Map();
@@ -22,8 +23,12 @@ export class Client implements IClient {
     private isClosed: boolean = false;
     private ctx: IContext = createContext(this);
 
-    constructor(config: IConfig) {
+    constructor(config: IConfig, isSysClient: boolean = false) {
         this.config = config;
+        // 只有非系统客户端才创建系统通信客户端
+        if (!isSysClient) {
+            this.sysClient = new Client(config, true);
+        }
     }
 
     addHandler(route: string, handler: any): void {
@@ -52,27 +57,84 @@ export class Client implements IClient {
         this.middlewares.push({ route, fn: middleware });
     }
 
-    connect(): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const protocol = this.config.enableTLS ? 'wss' : 'ws';
-            const url = `${protocol}://${this.config.addr}:${this.config.port}/game`;
+    async connect(): Promise<void> {
+        const addr = `${this.config.addr}:${this.config.port}`;
+        await this.connectInternal(addr, true);
+    }
 
+    private async connectInternal(addr: string, needNew: boolean): Promise<void> {
+        if (this.isClosed) {
+            throw new Error('Client is closed');
+        }
+
+        const protocol = this.config.enableTLS ? 'wss' : 'ws';
+        
+        if (!this.sysClient) {
+            throw new Error('System client is not initialized');
+        }
+        
+        // 1. 连接系统通信
+        await this.connectSys(`${protocol}://${addr}/system`);
+        
+        // 2. 获取最低负载服务器地址
+        const [, serverAddr] = await this.sysClient.request('/get_low_load_server_addr', needNew);
+        
+        // 3. 如果返回空地址，直接连接当前地址的用户通信
+        if (!serverAddr) {
+            await this.connectUser(`${protocol}://${addr}/game`);
+            return;
+        }
+        
+        // 4. 如果返回不同地址，重新连接该地址
+        await this.connectInternal(serverAddr, false);
+    }
+
+    private connectSys(url: string): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            if (!this.sysClient) {
+                reject(new Error('System client is not initialized'));
+                return;
+            }
+
+            this.sysClient.ws = new WebSocket(url);
+            this.sysClient.ws.onopen = () => {
+                this.sysClient!.isConnected = true;
+                this.config.logger.info('System WebSocket connected successfully');
+                resolve();
+            };
+            this.sysClient.ws.onmessage = (event) => {
+                // console.log('sysClient onmessage:', event.data);
+                this.sysClient!.handleMessage(event.data);
+            };
+            this.sysClient.ws.onerror = (error) => {
+                this.config.logger.error('System WebSocket connection error', error);
+                reject(new Error('System WebSocket connection failed'));
+            };
+            this.sysClient.ws.onclose = () => {
+                this.sysClient!.isConnected = false;
+                this.config.logger.info('System WebSocket connection closed');
+            };
+        });
+    }
+
+    private connectUser(url: string): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
             this.ws = new WebSocket(url);
             this.ws.onopen = () => {
                 this.isConnected = true;
-                this.config.logger.info('WebSocket connected successfully');
+                this.config.logger.info('User WebSocket connected successfully');
                 resolve();
             };
             this.ws.onmessage = (event) => {
                 this.handleMessage(event.data);
             };
             this.ws.onerror = (error) => {
-                this.config.logger.error('WebSocket connection error', error);
-                reject(new Error('WebSocket connection failed'));
+                this.config.logger.error('User WebSocket connection error', error);
+                reject(new Error('User WebSocket connection failed'));
             };
             this.ws.onclose = () => {
                 this.isConnected = false;
-                this.config.logger.info('WebSocket connection closed');
+                this.config.logger.info('User WebSocket connection closed');
             };
         });
     }
@@ -254,10 +316,18 @@ export class Client implements IClient {
     }
 
     close(): void {
+        // 关闭系统客户端连接
+        if (this.sysClient) {
+            this.sysClient.close();
+            this.sysClient = null;
+        }
+        
+        // 关闭用户客户端连接
         if (this.ws) {
             this.ws.close();
             this.ws = null;
         }
+        
         this.isConnected = false;
         this.isClosed = true;
         this.responses.clear();
