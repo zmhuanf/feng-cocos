@@ -1,9 +1,4 @@
-import { IConfig } from "./config";
-import { IContext } from "./context";
-
-/**
- * 请求类型枚举
- */
+// 请求类型枚举
 export enum RequestType {
   REQUEST = 0,
   PUSH = 1,
@@ -12,9 +7,7 @@ export enum RequestType {
   SYSTEM = 4
 }
 
-/**
- * 请求数据结构
- */
+// 请求数据结构
 export interface Request {
   route: string;
   id: string;
@@ -23,44 +16,24 @@ export interface Request {
   success?: boolean;
 }
 
-/**
- * 中间件定义
- */
-export interface Middleware {
+// 中间件
+export class Middleware {
   route: string;
-  fn: (ctx: any, data: any) => void;
+  fn: any;
+
+  constructor(route: string, fn: any) {
+    this.route = route;
+    this.fn = fn;
+  }
 }
 
-/**
- * 响应处理器定义
- */
-export interface ResponseHandler {
+// 响应处理器
+export class ResponseHandler {
   resolve: (data: any) => void;
   reject: (error: Error) => void;
-}
 
-/**
- * 客户端接口
- */
-export interface IClient {
-  /** 添加路由处理器 */
-  addHandler(route: string, handler: any): void;
-  
-  /** 添加中间件 */
-  addMiddleware(route: string, middleware: any): void;
-  
-  /** 连接服务器 */
-  connect(): Promise<void>;
-  
-  /** 推送消息 */
-  push(route: string, data: any): void;
-  
-  /** 异步请求 */
-  request(route: string, data: any): Promise<[IContext, any]>;
-  
-  /** 获取配置 */
-  getConfig(): IConfig;
-  
-  /** 关闭连接 */
-  close(): void;
+  constructor(resolve: (data: any) => void, reject: (error: Error) => void) {
+    this.resolve = resolve;
+    this.reject = reject;
+  }
 }

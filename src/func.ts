@@ -1,49 +1,63 @@
-import { ICodec } from "./config";
-import { IContext } from "./context";
+import { Context } from "./context";
 
-export function callFunction(
-    fn: any,
-    ctx: IContext,
-    data: string
-): { success: boolean; data?: string; error?: string } {
+// 调用函数
+export function callFunction(fn: any, ctx: Context, data: string): { success: boolean; data?: string; error?: string } {
     try {
-        // 检查是否为函数
-        if (typeof fn !== 'function') {
-            return { success: false, error: 'Handler must be a function' };
+        if (!validateFunction(fn)) {
+            return { success: false, error: 'Function is not valid' };
         }
-        // 获取函数参数数量
-        const expectedArgs = fn.length;
-        if (expectedArgs !== 2) {
-            return { success: false, error: 'Function must have exactly 2 arguments' };
-        }
+
         // 解析数据
-        const codec = ctx.getClient().getConfig().codec;
+        const codec = ctx.getClient().config.codec;
         let parsedData: any;
         try {
             parsedData = codec.unmarshal(data);
         } catch (parseError) {
-            // 如果解析失败，尝试作为字符串处理
+            // 如果解析失败，直接作为字符串处理
             parsedData = data;
         }
 
         // 调用函数
-        const result = fn(ctx, parsedData);
+        let result: any;
+        switch (fn.length) {
+            case 1:
+                result = fn(ctx);
+                break;
+            case 2:
+                result = fn(ctx, parsedData);
+                break;
+        }
 
         // 处理返回值
         if (result !== undefined && result !== null) {
-            try {
-                const resultData = codec.marshal(result);
-                return { success: true, data: resultData };
-            } catch (marshalError) {
-                return { success: false, error: 'Failed to marshal result' };
+            if (typeof result == 'string') {
+                return { success: true, data: result };
+            } else {
+                try {
+                    const resultData = codec.marshal(result);
+                    return { success: true, data: resultData };
+                } catch (marshalError) {
+                    return { success: false, error: 'Failed to marshal result' };
+                }
             }
         }
 
         return { success: true };
+
     } catch (error) {
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error occurred'
         };
     }
+
+}
+
+// 验证函数是否合法
+export function validateFunction(fn: any): boolean {
+    if (typeof fn !== 'function') {
+        return false;
+    }
+    const expectedArgs = fn.length;
+    return expectedArgs === 1 || expectedArgs === 2;
 }
