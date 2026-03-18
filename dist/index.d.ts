@@ -9,17 +9,18 @@ export * from './func';
 export * from './types';
 declare const _default: {
     RequestType: typeof types.RequestType;
-    callFunction(fn: any, ctx: context.IContext, data: string): {
+    Middleware: typeof types.Middleware;
+    ResponseHandler: typeof types.ResponseHandler;
+    callFunction(fn: any, ctx: context.Context, data: string): {
         success: boolean;
         data?: string;
         error?: string;
     };
-    createContext(client: types.IClient): context.IContext;
+    validateFunction(fn: any): boolean;
     Context: typeof context.Context;
+    Config: typeof config.Config;
     JsonCodec: typeof config.JsonCodec;
     ConsoleLogger: typeof config.ConsoleLogger;
-    DefaultConfig: typeof config.DefaultConfig;
-    createClient(config?: Partial<config.IConfig>): types.IClient;
     Client: typeof client.Client;
 };
 export default _default;

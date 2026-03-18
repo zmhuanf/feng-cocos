@@ -1,29 +1,34 @@
-import { IConfig } from "./config";
-import { IClient } from "./types";
-import { RequestType, Request } from "./types";
-export declare class Client implements IClient {
-    private config;
-    private ws;
+import { Config } from "./config";
+import { Context } from "./context";
+export declare class Client {
+    config: Config;
+    private conn;
+    private connSys;
     private handlers;
+    private handlersSys;
     private middlewares;
+    private middlewaresSys;
     private responses;
-    private isConnected;
-    private isClosed;
-    constructor(config: IConfig);
+    private responsesSys;
+    private ctx;
+    constructor(config: Config);
     addHandler(route: string, handler: any): void;
+    private addHandlerInternal;
     addMiddleware(route: string, middleware: any): void;
+    private addMiddlewareInternal;
     connect(): Promise<void>;
-    handleMessage(message: string): void;
-    handleResponse(request: Request): void;
-    handleIncomingRequest(request: Request): Promise<void>;
-    sendResponse(id: string, type: RequestType, success: boolean, data: string): Promise<void>;
-    sendRequest(request: Request): Promise<void>;
-    push(route: string, data: any): Promise<void>;
-    request(route: string, data: any): Promise<any>;
-    getConfig(): IConfig;
+    private connectInternal;
+    private connectSys;
+    private connectUser;
+    private handleMessage;
+    private handleResponseInternal;
+    private handleIncomingRequestInternal;
+    private sendResponse;
+    private sendRequest;
+    private sendRequestInternal;
+    push(route: string, data?: any): void;
+    request(route: string, data?: any): Promise<[Context, any]>;
+    private requestInternal;
     close(): void;
+    private checkConnected;
 }
-/**
- * 创建新的客户端实例
- */
-export declare function createClient(config?: Partial<IConfig>): IClient;

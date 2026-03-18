@@ -1,10 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Context = void 0;
-exports.createContext = createContext;
-/**
- * 上下文实现类
- */
+// 上下文
 class Context {
     constructor(client) {
         this.state = new Map();
@@ -21,10 +18,4 @@ class Context {
     }
 }
 exports.Context = Context;
-/**
- * 创建新的上下文实例
- */
-function createContext(client) {
-    return new Context(client);
-}
 //# sourceMappingURL=context.js.map
