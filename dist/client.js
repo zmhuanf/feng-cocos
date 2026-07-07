@@ -1,273 +1,247 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Client = void 0;
+const config_1 = require("./config");
 const context_1 = require("./context");
 const func_1 = require("./func");
 const types_1 = require("./types");
-const types_2 = require("./types");
 function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
         const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        const v = c === "x" ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
 }
 class Client {
-    constructor(config) {
+    constructor(config = new config_1.Config()) {
         this.conn = null;
         this.connSys = null;
         this.handlers = new Map();
         this.handlersSys = new Map();
         this.middlewares = [];
         this.middlewaresSys = [];
-        this.responses = new Map();
-        this.responsesSys = new Map();
-        this.ctx = new context_1.Context(this);
+        this.pending = new Map();
+        this.pendingSys = new Map();
+        this.ctx = new context_1.ClientContext(this);
         this.config = config;
     }
-    addHandler(route, handler) {
-        this.addHandlerInternal(route, handler, false);
+    handle(route, handler) {
+        this.setHandler(route, handler, false);
     }
-    addHandlerInternal(route, handler, isSys) {
-        if (!(0, func_1.validateFunction)(handler)) {
-            throw new Error('Handler function must be a function with 1 or 2 arguments');
+    setHandler(route, handler, isSys) {
+        if (typeof handler !== "function") {
+            throw new Error("handler must be a function");
         }
-        if (isSys) {
-            this.handlersSys.set(route, handler);
-        }
-        else {
-            this.handlers.set(route, handler);
-        }
+        const handlers = isSys ? this.handlersSys : this.handlers;
+        handlers.set(route, handler);
     }
-    addMiddleware(route, middleware) {
-        this.addMiddlewareInternal(route, middleware, false);
+    use(route, middleware) {
+        this.registerMiddleware(route, middleware, false);
     }
-    addMiddlewareInternal(route, middleware, isSys) {
-        if (!(0, func_1.validateFunction)(middleware)) {
-            throw new Error('Middleware function must be a function with 2 arguments');
+    registerMiddleware(route, middleware, isSys) {
+        if (typeof middleware !== "function") {
+            throw new Error("middleware must be a function");
         }
-        if (isSys) {
-            this.middlewaresSys.push(new types_1.Middleware(route, middleware));
-        }
-        else {
-            this.middlewares.push(new types_1.Middleware(route, middleware));
-        }
+        const middlewares = isSys ? this.middlewaresSys : this.middlewares;
+        middlewares.push(new types_1.Middleware(route, middleware));
     }
     async connect() {
         const addr = `${this.config.addr}:${this.config.port}`;
-        await this.connectInternal(addr, true);
+        const needNew = this.config.mode === config_1.ClientMode.Server ? false : !this.config.directConnect;
+        await this.connectInternal(addr, needNew);
     }
     async connectInternal(addr, needNew) {
-        const protocol = this.config.enableTLS ? 'wss' : 'ws';
-        // 1. 连接系统通信
-        await this.connectSys(`${protocol}://${addr}/system`);
-        // 2. 获取最低负载服务器地址
-        const [, serverAddr] = await this.requestInternal('/get_low_load_server_addr', needNew, true);
-        // 3. 如果返回空地址，直接连接当前地址的用户通信
-        if (!serverAddr) {
-            await this.connectUser(`${protocol}://${addr}/game`);
-            return;
-        }
-        // 4. 如果返回不同地址，重新连接该地址
-        await this.connectInternal(serverAddr, false);
-    }
-    connectSys(url) {
-        return new Promise((resolve, reject) => {
-            this.connSys = new WebSocket(url);
-            this.connSys.onopen = () => {
-                resolve();
-            };
-            this.connSys.onmessage = (event) => {
-                this.handleMessage(event.data, true);
-            };
-            this.connSys.onerror = () => {
-                reject(new Error('System WebSocket connection failed'));
-            };
-            this.connSys.onclose = () => {
-            };
-        });
-    }
-    connectUser(url) {
-        return new Promise((resolve, reject) => {
-            this.conn = new WebSocket(url);
-            this.conn.onopen = () => {
-                resolve();
-            };
-            this.conn.onmessage = (event) => {
-                this.handleMessage(event.data, false);
-            };
-            this.conn.onerror = (error) => {
-                reject(new Error('User WebSocket connection failed'));
-            };
-            this.conn.onclose = () => {
-                this.config.logger.info('User WebSocket connection closed');
-            };
-        });
-    }
-    handleMessage(message, isSys) {
-        // console.log('handleMessage:', message);
-        try {
-            const request = this.config.codec.unmarshal(message);
-            switch (request.type) {
-                case types_2.RequestType.PUSH_BACK:
-                    break;
-                case types_2.RequestType.REQUEST_BACK:
-                    this.handleResponseInternal(request, isSys);
-                    break;
-                case types_2.RequestType.PUSH:
-                case types_2.RequestType.REQUEST:
-                    this.handleIncomingRequestInternal(request, isSys);
-                    break;
-                default:
-                    this.config.logger.error('Unknown request type:', request.type);
-            }
-        }
-        catch (error) {
-            this.config.logger.error('Failed to handle message:', error);
-        }
-    }
-    handleResponseInternal(request, isSys) {
-        // this.config.logger.info('handleResponse:', request);
-        const responseHandler = isSys ? this.responsesSys.get(request.id) : this.responses.get(request.id);
-        if (!responseHandler) {
-            this.config.logger.error('No handler found for response:', request.id);
-            return;
-        }
-        if (request.success) {
-            try {
-                const data = this.config.codec.unmarshal(request.data);
-                responseHandler.resolve(data);
-            }
-            catch (error) {
-                responseHandler.reject(error);
-            }
-        }
-        else {
-            responseHandler.reject(new Error(request.data));
-        }
-    }
-    handleIncomingRequestInternal(request, isSys) {
-        const responseType = request.type === types_2.RequestType.PUSH ? types_2.RequestType.PUSH_BACK : types_2.RequestType.REQUEST_BACK;
-        // console.log('handleIncomingRequest:', request);
-        try {
-            // 执行中间件
-            for (const middleware of this.middlewares) {
-                if (request.route.startsWith(middleware.route)) {
-                    const result = (0, func_1.callFunction)(middleware.fn, this.ctx, request.data);
-                    if (!result.success) {
-                        this.sendResponse(request.id, responseType, false, result.error || 'Middleware error', isSys);
-                        return;
-                    }
-                }
-            }
-            // 查找路由处理器
-            const handler = this.handlers.get(request.route);
-            if (!handler) {
-                this.sendResponse(request.id, responseType, false, 'Route not found', isSys);
+        const protocol = this.config.enableTLS ? "wss" : "ws";
+        if (this.config.mode === config_1.ClientMode.Client) {
+            await this.connectSys(`${protocol}://${addr}/system`);
+            const [, serverAddr] = await this.requestInternal("/get_low_load_server_addr", needNew, true);
+            if (!serverAddr) {
+                await this.connectUser(`${protocol}://${addr}/game`);
                 return;
             }
-            // 执行处理器
-            const result = (0, func_1.callFunction)(handler, this.ctx, request.data);
-            // console.log('handleIncomingRequest:', result);
-            if (result.success) {
-                this.sendResponse(request.id, responseType, true, result.data || '', isSys);
+            await this.connectInternal(serverAddr, false);
+            return;
+        }
+        if (this.config.mode === config_1.ClientMode.Server) {
+            await this.connectSys(`${protocol}://${addr}/system`);
+            return;
+        }
+        throw new Error(`unknown client mode: ${this.config.mode}`);
+    }
+    connectSys(url) {
+        this.connSys?.close();
+        return this.openSocket(url, true);
+    }
+    connectUser(url) {
+        this.conn?.close();
+        return this.openSocket(url, false);
+    }
+    openSocket(url, isSys) {
+        return new Promise((resolve, reject) => {
+            const conn = new WebSocket(url);
+            if (isSys) {
+                this.connSys = conn;
             }
             else {
-                this.sendResponse(request.id, responseType, false, result.error || 'Handler error', isSys);
+                this.conn = conn;
             }
-        }
-        catch (error) {
-            this.config.logger.error('Error handling request:', error);
-            this.sendResponse(request.id, responseType, false, error instanceof Error ? error.message : 'Unknown error', isSys);
-        }
-    }
-    sendResponse(id, type, success, data, isSys) {
-        const response = {
-            route: '',
-            id,
-            type,
-            data,
-            success
-        };
-        this.sendRequestInternal(response, isSys);
-    }
-    sendRequest(request) {
-        this.sendRequestInternal(request, false);
-    }
-    sendRequestInternal(request, isSys) {
-        this.checkConnected(isSys);
-        let conn = isSys ? this.connSys : this.conn;
-        const message = this.config.codec.marshal(request);
-        conn.send(message);
+            conn.onopen = () => resolve();
+            conn.onmessage = (event) => this.handleMessage(String(event.data), isSys);
+            conn.onerror = () => reject(new Error(`${isSys ? "system" : "user"} WebSocket connection failed`));
+            conn.onclose = () => this.config.logger.info(`${isSys ? "System" : "User"} WebSocket connection closed`);
+        });
     }
     push(route, data = "") {
-        const request = {
+        this.sendMessage({
             route,
             id: generateUUID(),
-            type: types_2.RequestType.PUSH,
-            data: this.config.codec.marshal(data)
-        };
-        this.sendRequest(request);
+            type: types_1.MessageType.Push,
+            data: this.config.codec.marshal(data),
+        }, false);
     }
-    async request(route, data = "") {
+    request(route, data = "") {
         return this.requestInternal(route, data, false);
     }
-    async requestInternal(route, data, isSys) {
-        const requestId = generateUUID();
-        let resMap = isSys ? this.responsesSys : this.responses;
+    requestInternal(route, data, isSys) {
+        const id = generateUUID();
+        const pending = isSys ? this.pendingSys : this.pending;
         return new Promise((resolve, reject) => {
-            // 存储响应处理器
-            resMap.set(requestId, {
-                resolve: (data) => {
-                    resMap.delete(requestId);
-                    resolve([this.ctx, data]);
-                },
-                reject: (error) => {
-                    resMap.delete(requestId);
-                    reject(error);
+            const timer = setTimeout(() => {
+                if (pending.delete(id)) {
+                    reject(new Error("request timeout"));
                 }
+            }, this.config.timeout);
+            pending.set(id, {
+                timer,
+                resolve: (payload) => resolve([this.ctx, payload]),
+                reject,
             });
-            // 配置超时删除，防止内存泄漏
-            const timeoutMs = this.config.timeout || 30000;
-            setTimeout(() => {
-                if (resMap.has(requestId)) {
-                    resMap.delete(requestId);
-                    reject(new Error('Request timeout'));
-                }
-            }, timeoutMs);
-            const request = {
-                route,
-                id: requestId,
-                type: types_2.RequestType.REQUEST,
-                data: this.config.codec.marshal(data)
-            };
             try {
-                this.sendRequestInternal(request, isSys);
+                this.sendMessage({
+                    route,
+                    id,
+                    type: types_1.MessageType.Request,
+                    data: this.config.codec.marshal(data),
+                }, isSys);
             }
             catch (error) {
-                resMap.delete(requestId);
-                reject(error);
+                clearTimeout(timer);
+                pending.delete(id);
+                reject(error instanceof Error ? error : new Error("send request failed"));
             }
         });
     }
     close() {
-        if (this.connSys) {
-            this.connSys.close();
-            this.connSys = null;
-        }
-        if (this.conn) {
-            this.conn.close();
-            this.conn = null;
-        }
-        this.responses.clear();
+        this.conn?.close();
+        this.connSys?.close();
+        this.conn = null;
+        this.connSys = null;
+        this.clearPending(this.pending);
+        this.clearPending(this.pendingSys);
         this.handlers.clear();
+        this.handlersSys.clear();
         this.middlewares = [];
+        this.middlewaresSys = [];
     }
-    checkConnected(isSys) {
-        let conn = isSys ? this.connSys : this.conn;
-        if (!conn || conn.readyState !== WebSocket.OPEN) {
-            throw new Error('Client is not connected or closed');
+    isConnected() {
+        const systemConnected = this.connSys?.readyState === WebSocket.OPEN;
+        const userConnected = this.conn?.readyState === WebSocket.OPEN;
+        return this.config.mode === config_1.ClientMode.Server ? systemConnected : Boolean(systemConnected && userConnected);
+    }
+    handleMessage(message, isSys) {
+        try {
+            const request = this.config.codec.unmarshal(message);
+            switch (request.type) {
+                case types_1.MessageType.PushBack:
+                    return;
+                case types_1.MessageType.RequestBack:
+                    this.handleResponse(request, isSys);
+                    return;
+                case types_1.MessageType.Push:
+                case types_1.MessageType.Request:
+                    this.handleIncoming(request, isSys);
+                    return;
+                default:
+                    this.config.logger.error("unknown message type", request.type);
+            }
         }
+        catch (error) {
+            this.config.logger.error("failed to handle message", error);
+        }
+    }
+    handleResponse(message, isSys) {
+        const pending = isSys ? this.pendingSys : this.pending;
+        const item = pending.get(message.id);
+        if (!item) {
+            return;
+        }
+        pending.delete(message.id);
+        clearTimeout(item.timer);
+        if (!message.success) {
+            item.reject(new Error(message.data));
+            return;
+        }
+        try {
+            item.resolve(this.config.codec.unmarshal(message.data));
+        }
+        catch (error) {
+            item.reject(error instanceof Error ? error : new Error("failed to decode response"));
+        }
+    }
+    handleIncoming(message, isSys) {
+        const responseType = message.type === types_1.MessageType.Push ? types_1.MessageType.PushBack : types_1.MessageType.RequestBack;
+        const middlewares = isSys ? this.middlewaresSys : this.middlewares;
+        const handlers = isSys ? this.handlersSys : this.handlers;
+        try {
+            // 复制后再执行用户代码，避免处理中注册中间件导致迭代不稳定。
+            for (const middleware of [...middlewares]) {
+                if (!middleware.match(message.route)) {
+                    continue;
+                }
+                const result = (0, func_1.callFunction)(middleware.fn, this.ctx, message.data);
+                if (!result.success) {
+                    this.sendResponse(message.id, responseType, false, result.error ?? "middleware error", isSys);
+                    return;
+                }
+            }
+            const handler = handlers.get(message.route);
+            if (!handler) {
+                this.sendResponse(message.id, responseType, false, "route not found", isSys);
+                return;
+            }
+            const result = (0, func_1.callFunction)(handler, this.ctx, message.data);
+            if (!result.success) {
+                this.sendResponse(message.id, responseType, false, result.error ?? "handler error", isSys);
+                return;
+            }
+            this.sendResponse(message.id, responseType, true, result.data ?? "", isSys);
+        }
+        catch (error) {
+            this.sendResponse(message.id, responseType, false, error instanceof Error ? error.message : "unknown handler error", isSys);
+        }
+    }
+    sendResponse(id, type, success, data, isSys) {
+        this.sendMessage({
+            route: "",
+            id,
+            type,
+            data,
+            success,
+        }, isSys);
+    }
+    sendMessage(message, isSys) {
+        const conn = isSys ? this.connSys : this.conn;
+        if (!conn || conn.readyState !== WebSocket.OPEN) {
+            throw new Error("client is not connected or closed");
+        }
+        conn.send(this.config.codec.marshal(message));
+    }
+    clearPending(pending) {
+        for (const item of pending.values()) {
+            clearTimeout(item.timer);
+            item.reject(new Error("client closed"));
+        }
+        pending.clear();
     }
 }
 exports.Client = Client;

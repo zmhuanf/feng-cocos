@@ -1,29 +1,22 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ResponseHandler = exports.Middleware = exports.RequestType = void 0;
-// 请求类型枚举
-var RequestType;
-(function (RequestType) {
-    RequestType[RequestType["REQUEST"] = 0] = "REQUEST";
-    RequestType[RequestType["PUSH"] = 1] = "PUSH";
-    RequestType[RequestType["REQUEST_BACK"] = 2] = "REQUEST_BACK";
-    RequestType[RequestType["PUSH_BACK"] = 3] = "PUSH_BACK";
-    RequestType[RequestType["SYSTEM"] = 4] = "SYSTEM";
-})(RequestType || (exports.RequestType = RequestType = {}));
-// 中间件
+exports.Middleware = exports.MessageType = void 0;
+var MessageType;
+(function (MessageType) {
+    MessageType[MessageType["Request"] = 0] = "Request";
+    MessageType[MessageType["Push"] = 1] = "Push";
+    MessageType[MessageType["RequestBack"] = 2] = "RequestBack";
+    MessageType[MessageType["PushBack"] = 3] = "PushBack";
+})(MessageType || (exports.MessageType = MessageType = {}));
 class Middleware {
     constructor(route, fn) {
         this.route = route;
         this.fn = fn;
     }
-}
-exports.Middleware = Middleware;
-// 响应处理器
-class ResponseHandler {
-    constructor(resolve, reject) {
-        this.resolve = resolve;
-        this.reject = reject;
+    match(route) {
+        // 与 Go 端保持一致：中间件按路由前缀匹配。
+        return route.startsWith(this.route);
     }
 }
-exports.ResponseHandler = ResponseHandler;
+exports.Middleware = Middleware;
 //# sourceMappingURL=types.js.map

@@ -1,9 +1,9 @@
 import { Client } from "./client";
-export declare class Context {
-    private client;
-    private state;
+export declare class ClientContext {
+    private readonly owner;
+    private readonly state;
     constructor(client: Client);
-    getClient(): Client;
-    get(key: string): any;
-    set(key: string, value: any): void;
+    client(): Client;
+    get<T = unknown>(key: string): T | undefined;
+    set(key: string, value: unknown): void;
 }

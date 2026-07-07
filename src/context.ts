@@ -1,23 +1,22 @@
 import { Client } from "./client";
 
-// 上下文
-export class Context {
-    private client: Client;
-    private state: Map<string, any> = new Map();
+export class ClientContext {
+    private readonly owner: Client;
+    private readonly state = new Map<string, unknown>();
 
     constructor(client: Client) {
-        this.client = client;
+        this.owner = client;
     }
 
-    getClient(): Client {
-        return this.client;
+    client(): Client {
+        return this.owner;
     }
 
-    get(key: string): any {
-        return this.state.get(key);
+    get<T = unknown>(key: string): T | undefined {
+        return this.state.get(key) as T | undefined;
     }
 
-    set(key: string, value: any): void {
+    set(key: string, value: unknown): void {
         this.state.set(key, value);
     }
 }

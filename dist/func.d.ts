@@ -1,7 +1,7 @@
-import { Context } from "./context";
-export declare function callFunction(fn: any, ctx: Context, data: string): {
+import { ClientContext } from "./context";
+import { Handler, HandlerWithoutData, MiddlewareHandler, MiddlewareWithoutData } from "./types";
+export declare function callFunction(fn: Handler | HandlerWithoutData | MiddlewareHandler | MiddlewareWithoutData, ctx: ClientContext, data: string): {
     success: boolean;
     data?: string;
     error?: string;
 };
-export declare function validateFunction(fn: any): boolean;

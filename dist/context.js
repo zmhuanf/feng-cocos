@@ -1,14 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Context = void 0;
-// 上下文
-class Context {
+exports.ClientContext = void 0;
+class ClientContext {
     constructor(client) {
         this.state = new Map();
-        this.client = client;
+        this.owner = client;
     }
-    getClient() {
-        return this.client;
+    client() {
+        return this.owner;
     }
     get(key) {
         return this.state.get(key);
@@ -17,5 +16,5 @@ class Context {
         this.state.set(key, value);
     }
 }
-exports.Context = Context;
+exports.ClientContext = ClientContext;
 //# sourceMappingURL=context.js.map

@@ -39,18 +39,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const client = __importStar(require("./client"));
 const config = __importStar(require("./config"));
 const context = __importStar(require("./context"));
-const func = __importStar(require("./func"));
 const types = __importStar(require("./types"));
 __exportStar(require("./client"), exports);
 __exportStar(require("./config"), exports);
 __exportStar(require("./context"), exports);
-__exportStar(require("./func"), exports);
 __exportStar(require("./types"), exports);
 exports.default = {
     ...client,
     ...config,
     ...context,
-    ...func,
     ...types,
 };
 //# sourceMappingURL=index.js.map

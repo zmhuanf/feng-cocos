@@ -1,24 +1,29 @@
-export declare enum RequestType {
-    REQUEST = 0,
-    PUSH = 1,
-    REQUEST_BACK = 2,
-    PUSH_BACK = 3,
-    SYSTEM = 4
+import { ClientContext } from "./context";
+export declare enum MessageType {
+    Request = 0,
+    Push = 1,
+    RequestBack = 2,
+    PushBack = 3
 }
-export interface Request {
+export interface Message {
     route: string;
     id: string;
-    type: RequestType;
+    type: MessageType;
     data: string;
     success?: boolean;
 }
-export declare class Middleware {
+export type Handler<T = unknown, R = unknown> = (ctx: ClientContext, data: T) => R | void;
+export type HandlerWithoutData<R = unknown> = (ctx: ClientContext) => R | void;
+export type MiddlewareHandler<T = unknown> = (ctx: ClientContext, data: T) => void;
+export type MiddlewareWithoutData = (ctx: ClientContext) => void;
+export declare class Middleware<T = unknown> {
     route: string;
-    fn: any;
-    constructor(route: string, fn: any);
+    fn: MiddlewareHandler<T> | MiddlewareWithoutData;
+    constructor(route: string, fn: MiddlewareHandler<T> | MiddlewareWithoutData);
+    match(route: string): boolean;
 }
-export declare class ResponseHandler {
-    resolve: (data: any) => void;
-    reject: (error: Error) => void;
-    constructor(resolve: (data: any) => void, reject: (error: Error) => void);
+export interface PendingRequest {
+    resolve(data: unknown): void;
+    reject(error: Error): void;
+    timer: ReturnType<typeof setTimeout>;
 }
