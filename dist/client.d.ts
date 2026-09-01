@@ -15,6 +15,7 @@ export declare class Client {
     constructor(config?: Config);
     handle<R = unknown>(route: string, handler: HandlerWithoutData<R>): void;
     handle<T = unknown, R = unknown>(route: string, handler: Handler<T, R>): void;
+    private registerBuiltinHandlers;
     private setHandler;
     use(route: string, middleware: MiddlewareWithoutData): void;
     use<T = unknown>(route: string, middleware: MiddlewareHandler<T>): void;
@@ -24,6 +25,7 @@ export declare class Client {
     private connectSys;
     private connectUser;
     private openSocket;
+    ping(): Promise<number>;
     push(route: string, data?: unknown): void;
     request<T = unknown>(route: string, data?: unknown): Promise<[ClientContext, T]>;
     private requestInternal;

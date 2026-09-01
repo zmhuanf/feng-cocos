@@ -35,12 +35,19 @@ export class Client {
 
     constructor(config: Config = new Config()) {
         this.config = config;
+        this.registerBuiltinHandlers();
     }
 
     handle<R = unknown>(route: string, handler: HandlerWithoutData<R>): void;
     handle<T = unknown, R = unknown>(route: string, handler: Handler<T, R>): void;
     handle(route: string, handler: Handler | HandlerWithoutData): void {
         this.setHandler(route, handler, false);
+    }
+
+    // 内置应答 供对端探测本条链路
+    private registerBuiltinHandlers(): void {
+        this.setHandler("/ping", () => undefined, false);
+        this.setHandler("/ping", () => undefined, true);
     }
 
     private setHandler(route: string, handler: Handler | HandlerWithoutData, isSys: boolean): void {
@@ -120,6 +127,13 @@ export class Client {
         });
     }
 
+    // 走 system 通道请求对端 /ping 返回链路往返延迟 单位毫秒
+    async ping(): Promise<number> {
+        const start = Date.now();
+        await this.requestInternal<unknown>("/ping", "", true);
+        return Date.now() - start;
+    }
+
     push(route: string, data: unknown = ""): void {
         this.sendMessage({
             route,
@@ -176,6 +190,7 @@ export class Client {
         this.handlersSys.clear();
         this.middlewares = [];
         this.middlewaresSys = [];
+        this.registerBuiltinHandlers();
     }
 
     isConnected(): boolean {

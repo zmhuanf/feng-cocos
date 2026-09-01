@@ -24,9 +24,15 @@ class Client {
         this.pendingSys = new Map();
         this.ctx = new context_1.ClientContext(this);
         this.config = config;
+        this.registerBuiltinHandlers();
     }
     handle(route, handler) {
         this.setHandler(route, handler, false);
+    }
+    // 内置应答 供对端探测本条链路
+    registerBuiltinHandlers() {
+        this.setHandler("/ping", () => undefined, false);
+        this.setHandler("/ping", () => undefined, true);
     }
     setHandler(route, handler, isSys) {
         if (typeof handler !== "function") {
@@ -91,6 +97,12 @@ class Client {
             conn.onclose = () => this.config.logger.info(`${isSys ? "System" : "User"} WebSocket connection closed`);
         });
     }
+    // 走 system 通道请求对端 /ping 返回链路往返延迟 单位毫秒
+    async ping() {
+        const start = Date.now();
+        await this.requestInternal("/ping", "", true);
+        return Date.now() - start;
+    }
     push(route, data = "") {
         this.sendMessage({
             route,
@@ -142,6 +154,7 @@ class Client {
         this.handlersSys.clear();
         this.middlewares = [];
         this.middlewaresSys = [];
+        this.registerBuiltinHandlers();
     }
     isConnected() {
         const systemConnected = this.connSys?.readyState === WebSocket.OPEN;
